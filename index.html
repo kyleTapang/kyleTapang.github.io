@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+        
+<script src="https://d3js.org/d3.v6.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3-annotation/2.5.1/d3-annotation.js"></script>
+
+<style>
+.center {
+  max-width: 50%;
+  margin: auto;
+}
+.pStyle{
+  font-family:arial;
+  font-size:16px;
+}
+</style>
+
+<div id="lineChart" class="center">
+    <p class="pStyle">This is a line chart representing the daily number of covid cases starting from the beginning of the pandemic all the way to today in New York City.</p>
+    <p class="pStyle">I wanted to take a deep dive into the datasets provided by NYC Open Data. They created a GitHub page https://github.com/nychealth specifically for the pandemic and it contains continuously updated data on covid.</p>
+    <p class="pStyle">Tooltip: Use the buttons at the top-left to explore the daily number of hospitalizations and deaths as a result of covid.</p>
+    <button onclick="update('CASE_COUNT')">Cases</button>
+    <button onclick="update('HOSPITALIZED_COUNT')">Hospitalized</button>
+    <button onclick="update('DEATH_COUNT')">Death</button>
+</div>
+
+<script>
+
+const margin = {top: 30, right: 30, bottom: 70, left: 60},
+    width = 690 - margin.left - margin.right,
+    height = 600 - margin.top - margin.bottom;
+
+const svg = d3.select("#lineChart")
+  .append("svg")
+    .attr("width", width + margin.left + margin.right)
+    .attr("height", height + margin.top + margin.bottom)
+  .append("g")
+    .attr("transform", `translate(${margin.left},${margin.top})`);
+
+const x = d3.scaleTime().range([0,width]);
+const xAxis = d3.axisBottom(x)
+  .tickFormat(d3.timeFormat("%b %Y"))
+  .ticks(5)
+svg.append("g")
+  .attr("transform", `translate(0, ${height})`)
+  .attr("class","myXaxis")
+
+const y = d3.scaleLinear().range([height, 0]);
+const yAxis = d3.axisLeft().scale(y);
+svg.append("g")
+  .attr("class","myYaxis")
+
+const annotations = [
+{
+    note: { label: "One of the highest numbers of covid cases in a day. This is also accompanied by the highest number of hospitalizations and deaths during this time." },
+    x: 48,
+    y: 19,
+    dy: 50,
+    dx: 50,
+    className: "casesFirstPeak",
+    type: d3.annotationCalloutElbow,
+    connector: { end: "arrow" },
+},
+{
+    note: { label: "The highest number of covid cases in a day. It’s like the peak in April 2020. However, there’s an interesting observation if you check out the number of hospitalizations and deaths." },
+    x: 365,
+    y: 1,
+    dy: 100,
+    dx: 150,
+    className: "casesSecondPeak",
+    type: d3.annotationCalloutElbow,
+    connector: { end: "arrow" },
+},
+{
+    note: { label: "The number of covid cases during this time is like the peak in April 2020. However, the number of hospitalizations is far lower." },
+    x: 365,
+    y: 390,
+    dy: -50,
+    dx: -50,
+    className: "hospSecondPeak",
+    type: d3.annotationCalloutElbow,
+    connector: { end: "arrow" },
+},
+{
+    note: { label: "The number of covid cases during this time is like the peak in April 2020. However, the number of deaths is far lower." },
+    x: 365,
+    y: 438,
+    dy: -50,
+    dx: -50,
+    className: "deathsSecondPeak",
+    type: d3.annotationCalloutElbow,
+    connector: { end: "arrow" },
+},
+];
+
+function update(selectedValue = "CASE_COUNT") {
+
+  d3.csv("https://raw.githubusercontent.com/nychealth/coronavirus-data/master/trends/data-by-day.csv").then( function(data) {
+    
+    const newData = [];
+    const parseDate = d3.timeParse("%m/%d/%Y");
+    
+    for (let i = 0; i < data.length; i++) {
+        let dict = {};
+        dict["date"] = parseDate(data[i]["date_of_interest"]);
+        dict["value"] = parseInt(data[i][selectedValue]);
+        newData.push(dict);
+    }
+    
+    x.domain(d3.extent(newData.map(d => d.date)));
+    svg.selectAll(".myXaxis")
+        .transition()
+        .duration(1000)
+        .call(xAxis);
+    
+    y.domain([0, d3.max(newData.map(d => d.value)) ]);
+    svg.selectAll(".myYaxis")
+        .transition()
+        .duration(1000)
+        .call(yAxis);
+    
+    const u = svg.selectAll(".lineTest")
+        .data([newData], d => d.date);
+    
+    u
+      .join("path")
+      .attr("class","lineTest")
+      .transition()
+      .duration(1000)
+      .attr("d", d3.line()
+      .x(d => x(d.date))
+      .y(d => y(d.value)))
+      .attr("fill", "none")
+      .attr("stroke", "#ef3b2c")
+      .attr("stroke-width", 2.5)
+    
+    svg.select(".casesFirstPeak").remove()
+    svg.select(".casesSecondPeak").remove()
+    svg.select(".hospSecondPeak").remove()
+    svg.select(".deathsSecondPeak").remove()
+    
+    svg
+      .append("g")
+      .attr("class", "annotations")
+      .call(d3.annotation().type(d3.annotationLabel).annotations(annotations))
+    
+    svg.select(".casesFirstPeak").attr("visibility", "hidden")    
+    svg.select(".casesSecondPeak").attr("visibility", "hidden")
+    svg.select(".hospSecondPeak").attr("visibility", "hidden")
+    svg.select(".deathsSecondPeak").attr("visibility", "hidden")
+    if(selectedValue === "CASE_COUNT"){
+        svg.select(".casesFirstPeak").attr("visibility", "visible")    
+        svg.select(".casesSecondPeak").attr("visibility", "visible")
+    }
+    if(selectedValue === "HOSPITALIZED_COUNT"){ svg.select(".hospSecondPeak").attr("visibility", "visible")    }
+    if(selectedValue === "DEATH_COUNT"){ svg.select(".deathsSecondPeak").attr("visibility", "visible") }
+    
+  })
+      
+}
+
+update()
+
+</script>
